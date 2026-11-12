@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <meta name="theme-color" content="#351821">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Amadeus">
+    <meta name="description" content="Amadeus · 记忆与此刻的对话，原创形象的 AI 通话终端">
+    <title>Amadeus · 记忆接入终端</title>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+    <link rel="stylesheet" href="./css/style.css">
+  </head>
+  <body>
+    <div id="splash">
+      <div class="splash-logo">A<span>脉冲 / 记忆接入</span></div>
+      <p>Amadeus 接入中…</p>
+      <i></i>
+    </div>
+    <main class="phone">
+      <header>
+        <div class="brand">AMADEUS<span>维克多·孔多利亚大学 · 脑科学研究所</span></div>
+        <button id="settingsButton" class="icon-button" aria-label="打开设置">⚙</button>
+      </header>
+      <section class="stage" aria-label="虚拟通话形象">
+        <div class="stage-grid"></div>
+        <div class="live-label"><span class="led"></span> <span id="status">系统就绪</span><span class="session">记忆接入 / 001</span></div>
+        <div class="side-mark">记忆的延续<br>意识的边界</div>
+        <div id="avatar"></div>
+        <div id="live2d"></div>
+        <div class="avatar-caption"><span>牧濑 红莉栖<small>记忆副本 · AMADEUS</small></span><span id="emotionLabel">平静</span></div>
+        <div id="wave" class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      </section>
+      <section class="conversation">
+        <div class="log-heading"><span>对话记录 <b>／</b> 此刻</span><button id="memoryButton">记忆 <span>↗</span></button></div>
+        <div id="chat" role="log" aria-label="聊天记录" aria-live="polite"></div>
+      </section>
+      <form id="composer">
+        <label class="sr-only" for="input">输入消息</label>
+        <textarea id="input" rows="1" placeholder="有什么想对我说的？" maxlength="20000"></textarea><button id="send" type="submit" aria-label="发送消息">↑</button><button id="stop" type="button" hidden>停止</button>
+      </form>
+      <footer>对话记忆 / 本地保存 <span>AMADEUS PROJECT</span></footer>
+    </main>
+    <dialog id="settingsDialog">
+      <form id="settingsForm">
+        <div class="modal-title">
+          <h2>终端设置</h2>
+          <button type="button" data-close="settingsDialog" aria-label="关闭设置">×</button>
+        </div>
+        <p class="hint">连接你自己的模型，让记忆开始对话。</p>
+        <div class="presets"><button type="button" data-preset="deepseek">DeepSeek</button><button type="button" data-preset="openai">OpenAI</button><button type="button" data-preset="custom">自定义</button></div>
+        <label>API Base URL<input name="baseUrl" type="url" required placeholder="https://api.deepseek.com"></label>
+        <label>API Key<input name="apiKey" type="password" autocomplete="off" placeholder="sk-…"></label>
+        <p class="hint">Key 仅保存在本机浏览器的 localStorage，直接发送到你设置的接口。请勿在公共设备使用。</p>
+        <label>模型名称<input name="model" required></label>
+        <div class="two-col">
+          <label>温度<input name="temperature" type="number" min="0" max="2" step="0.1"></label>
+          <label>上下文消息数<input name="contextLimit" type="number" min="2" max="100" step="1"></label>
+        </div>
+        <label>你的昵称<input name="nickname" maxlength="40" required></label>
+        <label>
+          回复语言
+          <select name="language">
+            <option>中文</option>
+            <option>日本語</option>
+            <option>English</option>
+          </select>
+        </label>
+        <label class="check"><input name="tts" type="checkbox">朗读回复（设备语音）</label>
+        <label>
+          朗读声音
+          <select name="voice">
+            <option value="">自动选择中文／日文声音</option>
+          </select>
+        </label>
+        <label>
+          形象模式
+          <select name="avatarMode">
+            <option value="svg">内置 SVG 原创形象</option>
+            <option value="live2d">Live2D 模型 URL</option>
+          </select>
+        </label>
+        <label>Live2D 模型地址<input name="modelUrl" placeholder="./models/模型/模型.model3.json"></label>
+        <p class="hint">模型及其运行库需要网络与相应授权；失败时自动使用原创形象。</p>
+        <label class="check"><input name="autoMemory" type="checkbox">自动提取长期记忆（额外消耗 Token）</label>
+        <div class="data-actions"><button type="button" id="export">导出对话 JSON</button><button type="button" id="import">导入对话 JSON</button><button type="button" id="clear" class="danger">清空对话</button></div>
+        <input id="importFile" type="file" accept="application/json,.json" hidden><button type="submit" class="primary">保存设置</button>
+      </form>
+    </dialog>
+    <dialog id="memoryDialog">
+      <div class="modal-title">
+        <h2>长期记忆</h2>
+        <button data-close="memoryDialog" aria-label="关闭记忆">×</button>
+      </div>
+      <p class="hint">每行一条，只记录你希望她记住的事实。编辑或删除后保存即可。</p>
+      <label for="facts">关于你的事</label>
+      <textarea id="facts" rows="10" placeholder="例如：我喜欢研究神经科学。"></textarea><button id="saveMemory" class="primary">保存记忆</button>
+    </dialog>
+    <div id="toast" role="status"></div>
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>
