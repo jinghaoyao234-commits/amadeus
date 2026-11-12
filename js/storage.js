@@ -1,6 +1,10 @@
+import { validImage, pruneImages } from './image.js';
 export const defaults = {
   baseUrl: 'https://api.deepseek.com',
   apiKey: '',
+  visionBaseUrl: '',
+  visionApiKey: '',
+  visionModel: '',
   model: 'deepseek-chat',
   temperature: 0.8,
   tts: false,
@@ -35,14 +39,10 @@ export const getSettings = () => ({
   ...read('settings', {})
 });
 export function validateConversation(data) {
-  if (!Array.isArray(data) || data.length > 10000 || !data.every(m => m && ['user', 'assistant', 'system'].includes(m.role) && typeof m.content === 'string' && m.content.length < 200000)) throw new Error('对话 JSON 格式无效。');
-  return data.map(({
-    role,
-    content
-  }) => ({
-    role,
-    content
-  }));
+  if (!Array.isArray(data) || data.length > 10000 || !data.every(m => m && ['user', 'assistant', 'system'].includes(m.role) && typeof m.content === 'string' && m.content.length < 200000 && (m.image === undefined || (m.role === 'user' && validImage(m.image))))) throw new Error('对话 JSON 格式无效。');
+  if (data.reduce((size, m) => size + (m.image?.length || 0), 0) > 8_000_000) throw new Error('图片记录过大。');
+  return pruneImages(data.map(({ role, content, image }) => ({ role, content, ...(image ? { image } : {}) })));
+
 }
 
 function modelStore(mode, action) {

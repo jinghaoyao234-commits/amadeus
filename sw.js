@@ -1,9 +1,11 @@
-const CACHE = 'amadeus-shell-v3';
+const CACHE = 'amadeus-shell-v4';
 const SHELL = [
   './',
   './index.html',
   './css/style.css',
   './js/app.js',
+  './js/image.js',
+  './js/camera.js',
   './js/api.js',
   './js/persona.js',
   './js/emotion.js',

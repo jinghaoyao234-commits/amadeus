@@ -40,6 +40,9 @@
         <div id="chat" role="log" aria-label="聊天记录" aria-live="polite"></div>
       </section>
       <form id="composer">
+        <div id="attachment" hidden><img id="attachmentPreview" alt="待发送照片"><button id="removePhoto" type="button">移除图片</button></div>
+        <button id="cameraButton" type="button" aria-label="打开摄像头">拍照</button><button id="albumButton" type="button">相册</button><button id="nativePhotoButton" type="button" aria-label="通过系统相机或文件选图">选图</button>
+        <input id="photoFile" type="file" accept="image/*" capture hidden><input id="albumFile" type="file" accept="image/*" hidden>
         <label class="sr-only" for="input">输入消息</label>
         <textarea id="input" rows="1" placeholder="有什么想对我说的？" maxlength="20000"></textarea><button id="send" type="submit" aria-label="发送消息">↑</button><button id="stop" type="button" hidden>停止</button>
       </form>
@@ -52,11 +55,17 @@
           <button type="button" data-close="settingsDialog" aria-label="关闭设置">×</button>
         </div>
         <p class="hint">连接你自己的模型，让记忆开始对话。</p>
-        <div class="presets"><button type="button" data-preset="deepseek">DeepSeek</button><button type="button" data-preset="openai">OpenAI</button><button type="button" data-preset="custom">自定义</button></div>
+        <div class="presets"><button type="button" data-preset="deepseek">DeepSeek</button><button type="button" data-preset="openai">OpenAI</button><button type="button" data-preset="qwen">千问 Qwen</button><button type="button" data-preset="custom">自定义</button></div>
         <label>API Base URL<input name="baseUrl" type="url" required placeholder="https://api.deepseek.com"></label>
         <label>API Key<input name="apiKey" type="password" autocomplete="off" placeholder="sk-…"></label>
         <p class="hint">Key 仅保存在本机浏览器的 localStorage，直接发送到你设置的接口。请勿在公共设备使用。</p>
         <label>模型名称<input name="model" required></label>
+        <fieldset><legend>视觉模型（可选）</legend>
+          <p class="hint">当主模型不能看图（例如 DeepSeek）时，可在此单独填写支持视觉的接口，例如千问 qwen-vl-plus 或 OpenAI gpt-4o-mini。Key 同样只保存在本机。空白字段沿用主模型设置。</p>
+          <label>视觉 API Base URL<input name="visionBaseUrl" type="url"></label>
+          <label>视觉 API Key<input name="visionApiKey" type="password" autocomplete="off"></label>
+          <label>视觉模型名称<input name="visionModel"></label>
+        </fieldset>
         <div class="two-col">
           <label>温度<input name="temperature" type="number" min="0" max="2" step="0.1"></label>
           <label>上下文消息数<input name="contextLimit" type="number" min="2" max="100" step="1"></label>
@@ -105,6 +114,11 @@
       <p class="hint">每行一条，只记录你希望她记住的事实。编辑或删除后保存即可。</p>
       <label for="facts">关于你的事</label>
       <textarea id="facts" rows="10" placeholder="例如：我喜欢研究神经科学。"></textarea><button id="saveMemory" class="primary">保存记忆</button>
+    </dialog>
+    <dialog id="cameraDialog" aria-label="相机预览">
+      <h2>给 Amadeus 看看</h2><video id="cameraVideo" playsinline muted autoplay></video>
+      <div class="data-actions"><button type="button" data-shutter disabled>拍照</button><button type="button" data-switch>切换前/后摄像头</button><button type="button" data-cancel>取消</button></div>
+      <p class="hint">只在发送消息时将压缩后的照片发送到你配置的接口。</p>
     </dialog>
     <div id="toast" role="status"></div>
     <script type="importmap">

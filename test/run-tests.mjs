@@ -1,3 +1,5 @@
+import { supportsVision, pruneImages, resolveChatSettings, messagePart, IMAGE_REMOVED } from '../js/image.js';
+import { validateConversation } from '../js/storage.js';
 import http from 'node:http';
 import { emotionToVrmExpression } from '../js/vrm-emotion.js';
 import { spawn } from 'node:child_process';
@@ -57,6 +59,34 @@ test('接口地址规范化', () => {
   assert.equal(normalizeBaseUrl('https://api.openai.com/v1/'), 'https://api.openai.com/v1');
   assert.equal(normalizeBaseUrl('http://localhost:8787'), 'http://localhost:8787');
   assert.throws(() => normalizeBaseUrl('javascript:alert(1)'));
+});
+test('视觉模型识别与单轮接口路由', () => {
+  for (const model of ['deepseek-chat', 'deepseek-reasoner', 'qwen-plus', 'qwen-turbo', 'qwen-max']) assert.equal(supportsVision({ baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model }), false);
+  for (const model of ['qwen-vl-plus', 'qwen-vl-max', 'vl-plus', 'gpt-4o-mini', 'gpt-4.1-mini', 'gpt-4-turbo', 'gpt-4-vision-preview']) assert.equal(supportsVision({ model }), true);
+  const main = { baseUrl: 'https://api.deepseek.com', apiKey: 'local-test', model: 'deepseek-chat' };
+  assert.equal(resolveChatSettings(main, true), null);
+  const mixed = { ...main, visionBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', visionModel: 'qwen-vl-plus' };
+  assert.equal(resolveChatSettings(mixed, false), mixed);
+  assert.equal(resolveChatSettings(mixed, true).apiKey, main.apiKey);
+  assert.equal(resolveChatSettings(mixed, true).model, 'qwen-vl-plus');
+  assert.equal(normalizeBaseUrl(mixed.visionBaseUrl + '/'), mixed.visionBaseUrl);
+});
+const testImage = 'data:image/jpeg;base64,YWJj';
+test('图片历史数量与大小限制、导入校验及纯文字消息', () => {
+  const input = ['旧', '中', '新'].map(content => ({ role: 'user', content, image: testImage }));
+  const pruned = pruneImages(input);
+  assert.equal(pruned[0].image, undefined);
+  assert.equal(pruned[0].content, '旧\n' + IMAGE_REMOVED);
+  assert.equal(pruned[1].image, testImage);
+  assert.equal(pruned[2].image, testImage);
+  assert.equal(input[0].image, testImage);
+  assert.equal(pruneImages(input, 2, testImage.length)[1].image, undefined);
+  assert.equal(pruneImages(input, 0)[2].image, undefined);
+  assert.deepEqual(messagePart(input[0], false), { role: 'user', content: '旧' });
+  assert.equal(validateConversation(input)[0].image, undefined);
+  assert.deepEqual(validateConversation([{ role: 'user', content: '纯文字' }]), [{ role: 'user', content: '纯文字' }]);
+  assert.throws(() => validateConversation([{ role: 'user', content: '', image: 'https://invalid' }]));
+  assert.throws(() => validateConversation([{ role: 'user', content: '', image: 'data:image/jpeg;base64,' + 'A'.repeat(2_000_000) }]));
 });
 // Launch the real server on an OS-assigned port and preserve raw request paths.
 async function testStaticServer() {
@@ -174,6 +204,17 @@ try {
   assert.equal(mock.captured.stream, true);
   count++;
   console.log('通过：真实 SSE、拆分 UTF-8 与请求体');
+  const imageMessages = buildMessages({ nickname: '冈部', language: '中文', contextLimit: 20 }, [{ role: 'user', content: '看看这个', image: testImage }], []);
+  await streamChat({ ...options, model: 'qwen-vl-plus', messages: imageMessages });
+  assert.equal(mock.captured.model, 'qwen-vl-plus');
+  assert.equal(mock.captured.stream, true);
+  assert.deepEqual(mock.captured.messages.at(-1), { role: 'user', content: [
+    { type: 'text', text: '看看这个' },
+    { type: 'image_url', image_url: { url: testImage } }
+  ] });
+  assert.equal(messagePart({ role: 'user', content: '', image: testImage }).content[0].text, '请看看这张照片。');
+  count++;
+  console.log('通过：多模态 SSE 请求体与视觉模型');
   await assert.rejects(() => streamChat({
     ...options,
     apiKey: 'bad'

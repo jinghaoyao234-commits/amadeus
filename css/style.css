@@ -722,3 +722,15 @@ input[type=checkbox] {
     transition: none!important;
   }
 }
+
+#composer { flex-wrap: wrap; gap: 6px; }
+#composer > textarea { flex: 1; min-width: 80px; }
+#composer > button { flex-shrink: 0; }
+#attachment { flex-basis: 100%; align-items: center; }
+#attachment:not([hidden]) { display: flex; gap: 12px; }
+#attachmentPreview { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; }
+.chat-photo { display: block; max-width: min(240px, 100%); max-height: 240px; border-radius: 10px; object-fit: contain; margin-top: 8px; }
+#cameraVideo { display: block; width: 100%; max-height: 60dvh; background: #100c10; border-radius: 10px; }
+#cameraDialog { width: min(460px, 94vw); }
+fieldset { border: 1px solid #76505d80; border-radius: 8px; margin: 16px 0; padding: 12px; }
+legend { color: #e0a1b1; }
