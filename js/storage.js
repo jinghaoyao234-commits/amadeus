@@ -9,6 +9,8 @@ export const defaults = {
   nickname: '冈部',
   avatarMode: 'svg',
   modelUrl: '',
+  vrmUrl: '',
+  vrmLocalName: '',
   contextLimit: 20,
   autoMemory: false
 };
@@ -42,3 +44,23 @@ export function validateConversation(data) {
     content
   }));
 }
+
+function modelStore(mode, action) {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('amadeus-models', 1);
+    request.onupgradeneeded = () => request.result.createObjectStore('models');
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      let result;
+      const transaction = db.transaction('models', mode);
+      const operation = action(transaction.objectStore('models'));
+      operation.onsuccess = () => result = operation.result;
+      transaction.oncomplete = () => { db.close(); resolve(result); };
+      transaction.onabort = transaction.onerror = () => { db.close(); reject(transaction.error || new Error('本地模型存储失败')); };
+    };
+  });
+}
+export const getLocalVRM = () => modelStore('readonly', store => store.get('vrm'));
+export const saveLocalVRM = file => modelStore('readwrite', store => store.put({ blob: file, name: file.name }, 'vrm'));
+export const clearLocalVRM = () => modelStore('readwrite', store => store.delete('vrm'));

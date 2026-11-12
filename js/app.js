@@ -1,4 +1,4 @@
-import { getSettings, read, write, validateConversation } from './storage.js';
+import { getSettings, read, write, validateConversation, getLocalVRM, saveLocalVRM, clearLocalVRM } from './storage.js';
 import { streamChat, completeChat, normalizeBaseUrl } from './api.js';
 import { buildMessages, buildSystemPrompt } from './persona.js';
 import { createEmotionParser } from './emotion.js';
@@ -20,6 +20,7 @@ let controller = null,
   extractController = null,
   model = null,
   avatarVersion = 0,
+  avatarLoad = null,
   generation = 0,
   streaming = false,
   speaking = false;
@@ -104,27 +105,94 @@ function openSettings() {
     const input = form.elements.namedItem(key);
     if (input) input.type === 'checkbox' ? input.checked = value : input.value = value;
   }
+  updateVRMStatus();
   voices();
   $('settingsDialog').showModal();
 }
+function updateVRMStatus() {
+  $('vrmStatus').textContent = settings.vrmLocalName ? '已导入本地模型：' + settings.vrmLocalName : '未导入本地模型';
+  $('clearVRM').disabled = !settings.vrmLocalName;
+}
 async function changeAvatar() {
   const version = ++avatarVersion;
+  avatarLoad?.abort();
+  const pending = new AbortController();
+  avatarLoad = pending;
   model?.destroy();
   model = null;
   $('avatar').style.visibility = 'visible';
-  if (settings.avatarMode !== 'live2d' || !settings.modelUrl.trim()) return;
+  const mode = settings.avatarMode;
   try {
-    const loaded = await loadLive2D($('live2d'), settings.modelUrl.trim());
+    let loaded;
+    if (mode === 'live2d' && settings.modelUrl.trim()) {
+      loaded = await loadLive2D($('live2d'), settings.modelUrl.trim());
+    } else if (mode === 'vrm') {
+      const url = settings.vrmUrl.trim();
+      let local;
+      if (settings.vrmLocalName) local = await getLocalVRM();
+      if (version !== avatarVersion) return;
+      if (settings.vrmLocalName && !local) throw new Error('本地模型已丢失，请重新导入或清除本地模型');
+      if (!local && !url) return;
+      const { loadVRM } = await import('./vrm.js');
+      if (version !== avatarVersion) return;
+      loaded = await loadVRM($('vrm'), local?.blob || url, {
+        signal: pending.signal,
+        onError(error) {
+          if (version !== avatarVersion) return;
+          model?.destroy();
+          model = null;
+          $('avatar').style.visibility = 'visible';
+          toast('VRM 加载失败，已使用内置形象：' + error.message);
+        }
+      });
+    } else return;
     if (version !== avatarVersion) {
       loaded.destroy();
       return;
     }
     model = loaded;
     $('avatar').style.visibility = 'hidden';
-  } catch {
-    if (version === avatarVersion) toast('Live2D 加载失败，已切换为内置形象。请检查模型地址、跨域和授权。');
+  } catch (error) {
+    if (version !== avatarVersion) return;
+    if (mode === 'vrm') toast('VRM 加载失败，已使用内置形象：' + (error instanceof TypeError ? '网络、CORS 或 CDN 运行库加载失败，请检查连接' : error.message || '请检查文件及 WebGL 支持'));
+    else toast('Live2D 加载失败，已切换为内置形象。请检查模型地址、跨域和授权。');
   }
 }
+$('importVRM').onclick = () => $('vrmFile').click();
+$('vrmFile').onchange = async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  $('importVRM').disabled = $('clearVRM').disabled = true;
+  try {
+    if (!/\.vrm$/i.test(file.name) || !file.size) throw new Error('请选择非空的 .vrm 文件');
+    await saveLocalVRM(file);
+    settings.vrmLocalName = file.name;
+    write('settings', settings);
+    changeAvatar();
+    toast('本地模型已保存');
+  } catch (error) {
+    toast('导入失败：' + error.message);
+  } finally {
+    e.target.value = '';
+    $('importVRM').disabled = false;
+    updateVRMStatus();
+  }
+};
+$('clearVRM').onclick = async () => {
+  $('importVRM').disabled = $('clearVRM').disabled = true;
+  try {
+    await clearLocalVRM();
+    settings.vrmLocalName = '';
+    write('settings', settings);
+    changeAvatar();
+    toast('已清除本地模型');
+  } catch (error) {
+    toast('清除失败：' + error.message);
+  } finally {
+    $('importVRM').disabled = false;
+    updateVRMStatus();
+  }
+};
 $('settingsButton').onclick = openSettings;
 document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => $(b.dataset.close).close());
 document.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => {
@@ -156,7 +224,7 @@ $('settingsForm').onsubmit = e => {
   next.temperature = Number(next.temperature);
   next.contextLimit = Math.round(Number(next.contextLimit));
   if (!Number.isFinite(next.temperature) || next.temperature < 0 || next.temperature > 2 || next.contextLimit < 2 || next.contextLimit > 100) return;
-  const changed = next.avatarMode !== settings.avatarMode || next.modelUrl !== settings.modelUrl;
+  const changed = next.avatarMode !== settings.avatarMode || next.modelUrl !== settings.modelUrl || next.vrmUrl !== settings.vrmUrl || next.vrmLocalName !== settings.vrmLocalName;
   settings = next;
   write('settings', settings);
   speech.stop();

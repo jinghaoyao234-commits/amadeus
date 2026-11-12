@@ -1,4 +1,4 @@
-const CACHE = 'amadeus-shell-v2';
+const CACHE = 'amadeus-shell-v3';
 const SHELL = [
   './',
   './index.html',
@@ -9,6 +9,8 @@ const SHELL = [
   './js/emotion.js',
   './js/avatar-svg.js',
   './js/live2d.js',
+  './js/vrm.js',
+  './js/vrm-emotion.js',
   './js/tts.js',
   './js/storage.js',
   './manifest.webmanifest',

@@ -10,6 +10,7 @@
 - DeepSeek / OpenAI / 自定义接口、温度、昵称、回复语言、最近 N 条消息上下文（默认 20）。
 - 本机对话保存、JSON 导入导出、可编辑与删除的长期记忆，自动提取记忆默认关闭，开启后每次完整回复额外调用一次非流式接口。
 - 系统 TTS 声音选择；流式输出与朗读时显示波形、驱动口型。TTS 使用设备语音，不是原角色声音。声音可用性取决于设备，部分系统声音可能需要联网。
+- 可选 VRM 3D 形象：支持 HTTPS URL 或本地 .vrm 导入，文件保存在 IndexedDB，口型、眨眼、表情与自然待机动作同步，失败回退 SVG。
 - 可选 Live2D：设置模型 URL 后才加载 CDN 运行库，失败回退到原创 SVG。
 - PWA 安装与离线应用外壳；离线不能请求模型，API 请求绝不进入 Service Worker 缓存。
 
@@ -63,6 +64,16 @@ Live2D 设置示例：把有授权的完整模型目录（包含纹理、moc3、
 
 [pixi-live2d-display](https://github.com/guansss/pixi-live2d-display) 使用 MIT 许可；**Cubism Core 适用 Live2D Proprietary Software License**，不属于本项目的 MIT 授权。模型也需要单独授权。测试可使用 [Live2D 官方免费示例模型](https://www.live2d.com/en/learn/sample/)（如 Hiyori / Haru），请阅读各自的 Live2D Free Material License、使用条件和再分发限制。本项目不附带任何模型、不提供角色声音。
 
+### 3D (VRM) 模型获取与导入
+
+本项目**不包含任何官方牧濑红莉栖 / Steins;Gate 模型**，相关模型受版权保护，请勿把未授权模型放入仓库。不要将任何 `.vrm` 文件加入 git；`models/` 已被忽略。
+
+推荐下载免费的 [VRoid Studio](https://vroid.com/studio)，自行创作一个受红莉栖风格启发的角色，导出为 VRM，再在设置中“导入本地 VRM”。也可在 [VRoid Hub](https://hub.vroid.com/) 选择许可允许你使用的模型，检查再分发、署名、商业／非商业使用等条款。只有托管方允许 CORS 时才能使用直接 HTTPS URL；否则下载后导入本地文件。
+
+操作：设置 → 形象模式 → **3D (VRM)** → 粘贴 URL 或导入 `.vrm` → 保存。本地模型优先于 URL；点击“清除本地模型”后使用 URL。导入和清除立即保存，替换同名文件也会重新加载形象。本地二进制只保存在当前浏览器来源的 IndexedDB，文件名和 URL 保存在 localStorage；清除站点数据会删除模型，更换设备或域名需要重新导入。
+
+运行库使用 importmap 固定到 [three.js 0.177.0](https://github.com/mrdoob/three.js/tree/r177) 和 [@pixiv/three-vrm 3.4.2](https://github.com/pixiv/three-vrm/tree/v3.4.2)，两者均为 MIT 许可，通过 jsDelivr CDN 加载。**只有启用 VRM 模式且设置了模型时才加载 Three.js / three-vrm**；没有内置或默认远程示例模型。当前手机 Safari / Chrome 支持原生 importmap，无需构建工具。CORS、404、无效文件、运行库网络失败或 WebGL 不兼容时，会提示错误并回退到原创 SVG。CDN 运行库和模型不进入应用外壳缓存，首次加载需要联网；已导入本地文件不会再次下载，但运行库仍需可用。
+
 人格位于 `js/persona.js`：`buildSystemPrompt` 根据昵称、语言与长期记忆生成系统提示，`examples` 是不会显示到 UI 的原创少样本对话。表情协议要求正文前恰好一个 `[emotion:...]` 标签，支持 neutral、smile、annoyed、embarrassed、surprised、thinking、sad。客户端跨块缓冲标签并移除；缺失时使用中日英关键词推断。提示不能保证模型绝对遵循设定。
 
 ## 测试与模拟接口
@@ -73,7 +84,7 @@ npm test
 node test/run-tests.mjs
 ```
 
-测试覆盖所有标签拆分位置、逐字符输入、关键词、Base URL 规范化、真实 SSE 读取、UTF-8 字符跨字节分块、请求体与 system 首消息、401 映射、请求取消。集成测试临时监听本机 8787 端口，需要环境允许本机监听。
+测试覆盖 VRM 表情映射、importmap 与 VRM 脚本静态服务，以及所有标签拆分位置、逐字符输入、关键词、Base URL 规范化、真实 SSE 读取、UTF-8 字符跨字节分块、请求体与 system 首消息、401 映射、请求取消。集成测试临时监听本机 8787 端口，需要环境允许本机监听。
 
 手动模拟：
 
@@ -85,7 +96,7 @@ node test/mock-server.mjs
 
 ## 文件结构
 
-`index.html` 与 `css/style.css` 为界面；`js/app.js` 管理 UI；`api.js` 为可在 Node 18+ 测试的流式客户端；`emotion.js` 是纯函数解析器；`storage.js` 管理本机数据；`avatar-svg.js`、`live2d.js`、`tts.js` 管理形象和朗读；`sw.js`、manifest 与 `icons/` 提供 PWA 外壳；`server.mjs` 为零依赖静态服务；`test/` 包含模拟接口和测试。
+`index.html` 与 `css/style.css` 为界面；`js/app.js` 管理 UI；`api.js` 为可在 Node 18+ 测试的流式客户端；`emotion.js` 是纯函数解析器；`storage.js` 管理 localStorage 设置和 IndexedDB 本地 VRM；`avatar-svg.js`、`live2d.js`、`vrm.js`、`tts.js` 管理形象和朗读，`vrm-emotion.js` 提供可独立测试的 VRM 表情映射；`sw.js`、manifest 与 `icons/` 提供 PWA 外壳；`server.mjs` 为零依赖静态服务；`test/` 包含模拟接口和测试。
 
 ## 版权与参考
 

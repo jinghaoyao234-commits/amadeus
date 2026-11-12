@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { emotionToVrmExpression } from '../js/vrm-emotion.js';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
@@ -36,6 +37,20 @@ test('多语言关键词推断', () => {
   assert.equal(inferEmotion('ありがとう'), 'smile');
   assert.equal(inferEmotion('I am sad'), 'sad');
   assert.equal(inferEmotion('晴天'), 'neutral');
+});
+test('VRM 七种表情映射与中性重置', () => {
+  assert.deepEqual(Object.keys(emotionToVrmExpression).sort(), ['neutral', 'smile', 'annoyed', 'embarrassed', 'surprised', 'thinking', 'sad'].sort());
+  assert.deepEqual(emotionToVrmExpression.neutral, {});
+  for (const [emotion, preset] of Object.entries({ smile: 'happy', annoyed: 'angry', sad: 'sad', surprised: 'surprised', thinking: 'relaxed' })) {
+    assert.ok(emotionToVrmExpression[emotion][preset] > 0);
+  }
+  assert.ok(emotionToVrmExpression.embarrassed.happy < emotionToVrmExpression.smile.happy);
+  for (const mapping of Object.values(emotionToVrmExpression)) {
+    for (const [name, weight] of Object.entries(mapping)) {
+      assert.ok(['happy', 'angry', 'sad', 'surprised', 'relaxed'].includes(name));
+      assert.ok(weight > 0 && weight <= 1);
+    }
+  }
 });
 test('接口地址规范化', () => {
   assert.equal(normalizeBaseUrl('https://api.deepseek.com/'), 'https://api.deepseek.com');
@@ -104,6 +119,14 @@ async function testStaticServer() {
     assert.equal(home.status, 200);
     assert.match(home.headers['content-type'], /text\/html/);
     assert.match(home.body, /<!doctype html>/i);
+    assert.match(home.body, /type="importmap"/);
+    assert.match(home.body, /value="vrm"/);
+    const importmap = JSON.parse(home.body.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]);
+    assert.match(importmap.imports.three, /three@0\.177\.0/);
+    assert.match(importmap.imports['@pixiv/three-vrm'], /three-vrm@3\.4\.2/);
+    const vrm = await get('/js/vrm.js');
+    assert.equal(vrm.status, 200);
+    assert.match(vrm.headers['content-type'], /javascript/);
     const script = await get('/js/app.js');
     assert.equal(script.status, 200);
     assert.match(script.headers['content-type'], /javascript/);

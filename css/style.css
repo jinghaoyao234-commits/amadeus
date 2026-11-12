@@ -147,7 +147,7 @@ header {
   writing-mode: vertical-rl;
 }
 
-#avatar,#live2d {
+#avatar,#live2d,#vrm {
   position: absolute;
   inset: 21px 15px 12px;
   display: flex;
@@ -155,11 +155,11 @@ header {
   justify-content: center;
 }
 
-#live2d {
+#live2d,#vrm {
   pointer-events: none;
 }
 
-#live2d canvas {
+#live2d canvas,#vrm canvas {
   max-width: 100%;
   max-height: 100%;
 }
